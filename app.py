@@ -1,36 +1,31 @@
 """
 ParkVision AI - Intelligent Urban Parking Analytics & Space Optimisation
 --------------------------------------------------------------------------
-Streamlit web app that:
-  1. Lets a user upload a parking lot image
-  2. Runs slot-level occupancy detection (classification-based approach,
-     using a MobileNet/EfficientNet model trained on cropped slot images)
-  3. Draws colour-coded overlays (green = empty, red = occupied)
-  4. Computes total / occupied / available slots + utilisation %
-  5. Classifies congestion level (Low / Moderate / High)
-  6. Generates a simple recommendation
-  7. Displays everything in a clean, responsive dashboard
+Pure Python / Streamlit app. Slots are detected automatically by a YOLO
+model trained on the PKLot dataset (Step 3) - no manual slot-coordinate
+file needed. The model detects each parking slot's location AND whether
+it's occupied or empty, in one pass over the full image.
 
-HOW TO PLUG IN YOUR OWN TRAINED MODEL
---------------------------------------
-This app expects two things that YOU produce in Steps 2-3 of the assignment:
+Pipeline:
+  1. Upload a parking lot image
+  2. YOLO detects every slot + its status (occupied / empty)
+  3. Draw colour-coded boxes (green = empty, red = occupied)
+  4. Compute total / occupied / available slots + utilisation %
+  5. Classify congestion level (Low / Moderate / High)
+  6. Generate a recommendation
+  7. Display everything in a Streamlit dashboard
 
-1. A trained Keras model file, e.g. "parking_model.h5", trained to classify
-   a cropped slot image as "empty" or "occupied" (from Step 3).
-2. A "slots.json" file describing where each parking slot is in the image,
-   as a list of bounding boxes: [{"id": 1, "x": 10, "y": 20, "w": 80, "h": 40}, ...]
-   You can generate this once per camera view (e.g. using a simple
-   annotation tool, or by eyeballing pixel coordinates on a sample image).
-
-If you instead trained a YOLO model that detects slots directly (no
-slots.json needed), see the "detect_slots_yolo()" function below and swap
-it in for "detect_slots_classification()".
+HOW TO PLUG IN YOUR TRAINED MODEL
+-----------------------------------
+Train a YOLO model (e.g. with the ultralytics package) on the PKLot
+dataset with two classes: "empty" and "occupied". Export the weights as
+"parking_yolo.pt" and place it next to this script. That's it - no other
+config files are required.
 
 Run with:
     streamlit run app.py
 """
 
-import json
 import os
 
 import cv2
@@ -38,119 +33,89 @@ import numpy as np
 import streamlit as st
 from PIL import Image
 
-# TensorFlow/Keras is only needed for the classification-based approach.
 try:
-    from tensorflow.keras.models import load_model
-    from tensorflow.keras.preprocessing.image import img_to_array
-    TF_AVAILABLE = True
+    from ultralytics import YOLO
+    YOLO_AVAILABLE = True
 except ImportError:
-    TF_AVAILABLE = False
+    YOLO_AVAILABLE = False
 
 
 # ---------------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------------
-MODEL_PATH = "parking_model.h5"     # your trained MobileNet/EfficientNet model
-SLOTS_PATH = "slots.json"           # slot bounding-box definitions
-IMG_SIZE = (224, 224)               # must match the size used during training
+MODEL_PATH = "parking_yolo.pt"   # your trained YOLO weights (Step 3)
+CONF_THRESHOLD = 0.4             # minimum detection confidence to keep a box
 
-LOW_THRESHOLD = 40      # % occupancy below this  -> Low congestion
-HIGH_THRESHOLD = 75     # % occupancy above this   -> High congestion
+LOW_THRESHOLD = 40       # % occupancy below this  -> Low congestion
+HIGH_THRESHOLD = 75      # % occupancy above this   -> High congestion
 
-COLOR_EMPTY = (0, 200, 0)     # green (BGR for OpenCV)
-COLOR_OCCUPIED = (0, 0, 220)  # red (BGR for OpenCV)
+COLOR_EMPTY = (0, 200, 0)      # green (BGR for OpenCV)
+COLOR_OCCUPIED = (0, 0, 220)   # red (BGR for OpenCV)
+
+# Class-name -> status mapping. Adjust the indices to match how you
+# labelled your classes when training YOLO (check data.yaml / model.names).
+CLASS_TO_STATUS = {
+    "empty": "empty",
+    "occupied": "occupied",
+}
 
 
 # ---------------------------------------------------------------------------
-# Model + slot loading (cached so it only loads once per session)
+# Model loading (cached so it only loads once per session)
 # ---------------------------------------------------------------------------
 @st.cache_resource
-def load_classification_model(model_path):
-    """Load the trained occupancy classifier. Returns None if unavailable."""
-    if TF_AVAILABLE and os.path.exists(model_path):
-        return load_model(model_path)
-    return None
-
-
-@st.cache_data
-def load_slot_definitions(slots_path):
-    """Load slot bounding boxes from slots.json. Returns None if unavailable."""
-    if os.path.exists(slots_path):
-        with open(slots_path, "r") as f:
-            return json.load(f)
+def load_yolo_model(model_path):
+    """Load the trained YOLO model. Returns None if unavailable."""
+    if YOLO_AVAILABLE and os.path.exists(model_path):
+        return YOLO(model_path)
     return None
 
 
 # ---------------------------------------------------------------------------
 # Slot detection
 # ---------------------------------------------------------------------------
-def detect_slots_classification(image_bgr, slots, model):
+def detect_slots(image_bgr, model):
     """
-    Crop-based classification approach.
-    For each slot bounding box: crop -> preprocess -> classify -> label.
+    Run YOLO on the full image and return a list of detected slots:
+    [{"x", "y", "w", "h", "status", "confidence"}, ...]
 
-    Returns a list of dicts: {"id", "x", "y", "w", "h", "status", "confidence"}
+    No slot coordinates need to be provided - YOLO finds them.
     """
-    results = []
-    for slot in slots:
-        x, y, w, h = slot["x"], slot["y"], slot["w"], slot["h"]
-        crop = image_bgr[y:y + h, x:x + w]
-        if crop.size == 0:
-            continue
-
-        crop_resized = cv2.resize(crop, IMG_SIZE)
-        crop_rgb = cv2.cvtColor(crop_resized, cv2.COLOR_BGR2RGB)
-
-        if model is not None:
-            arr = img_to_array(crop_rgb) / 255.0
-            arr = np.expand_dims(arr, axis=0)
-            pred = model.predict(arr, verbose=0)[0]
-            # Assumes a single sigmoid output: 0 = empty, 1 = occupied.
-            # If your model uses 2-class softmax, adapt this line accordingly.
-            occupied_prob = float(pred[0]) if pred.shape[0] == 1 else float(pred[1])
-            status = "occupied" if occupied_prob >= 0.5 else "empty"
-            confidence = occupied_prob if status == "occupied" else 1 - occupied_prob
-        else:
-            # DEMO FALLBACK (no trained model found): a simple brightness
-            # heuristic so the app is still runnable end-to-end for testing.
-            # Replace this branch entirely once your model is trained.
-            gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-            status = "occupied" if gray.std() > 35 else "empty"
-            confidence = 0.5
-
-        results.append({
-            "id": slot.get("id"),
-            "x": x, "y": y, "w": w, "h": h,
-            "status": status,
-            "confidence": round(confidence, 2),
-        })
-    return results
-
-
-def detect_slots_yolo(image_bgr, yolo_model):
-    """
-    Alternative: full-image object detection approach.
-    Use this instead of detect_slots_classification() if you trained YOLO
-    to detect slots directly (e.g. using the ultralytics package).
-
-    Example (uncomment and adapt once you have a trained .pt weights file):
-
-        from ultralytics import YOLO
-        yolo_model = YOLO("best.pt")
-        preds = yolo_model(image_bgr)[0]
+    if model is not None:
+        preds = model(image_bgr, conf=CONF_THRESHOLD, verbose=False)[0]
         results = []
-        for i, box in enumerate(preds.boxes):
+        for box in preds.boxes:
             x1, y1, x2, y2 = box.xyxy[0].tolist()
-            cls = int(box.cls[0])
-            status = "occupied" if cls == 1 else "empty"
+            cls_id = int(box.cls[0])
+            class_name = model.names[cls_id].lower()
+            status = CLASS_TO_STATUS.get(class_name, class_name)
+            confidence = float(box.conf[0])
+
             results.append({
-                "id": i, "x": int(x1), "y": int(y1),
+                "x": int(x1), "y": int(y1),
                 "w": int(x2 - x1), "h": int(y2 - y1),
-                "status": status, "confidence": round(float(box.conf[0]), 2),
+                "status": status,
+                "confidence": round(confidence, 2),
             })
         return results
-    """
-    raise NotImplementedError("Plug in your trained YOLO model here.")
+
+    # DEMO FALLBACK (no trained model found yet): generates a handful of
+    # pseudo-random slots so the rest of the app is testable end-to-end.
+    # Delete this branch once your YOLO weights are trained and in place.
+    h_img, w_img = image_bgr.shape[:2]
+    rng = np.random.default_rng(seed=42)
+    demo_results = []
+    grid_cols, grid_rows = 4, 2
+    cell_w, cell_h = w_img // grid_cols, h_img // grid_rows
+    for r in range(grid_rows):
+        for c in range(grid_cols):
+            status = "occupied" if rng.random() > 0.5 else "empty"
+            demo_results.append({
+                "x": c * cell_w + 5, "y": r * cell_h + 5,
+                "w": cell_w - 10, "h": cell_h - 10,
+                "status": status, "confidence": 0.5,
+            })
+    return demo_results
 
 
 # ---------------------------------------------------------------------------
@@ -204,25 +169,17 @@ def main():
 
     st.title("🅿️ ParkVision AI — Smart Parking Analytics")
     st.caption(
-        "Upload a parking lot image to detect slot-level occupancy, "
-        "view live analytics, and get a parking recommendation."
+        "Upload a parking lot image. YOLO detects every slot and its "
+        "occupancy status automatically — no manual setup required."
     )
 
-    model = load_classification_model(MODEL_PATH)
-    slots = load_slot_definitions(SLOTS_PATH)
-
+    model = load_yolo_model(MODEL_PATH)
     if model is None:
         st.warning(
-            f"⚠️ No trained model found at '{MODEL_PATH}'. Running in DEMO mode "
-            "with a simple brightness-based fallback. Add your trained model "
-            "file to enable real predictions."
+            f"⚠️ No trained YOLO weights found at '{MODEL_PATH}'. Running in "
+            "DEMO mode with randomly generated slots so you can test the "
+            "app. Add your trained 'parking_yolo.pt' to enable real detection."
         )
-    if slots is None:
-        st.error(
-            f"❌ No slot definitions found at '{SLOTS_PATH}'. Please add a "
-            "slots.json file describing each parking slot's bounding box."
-        )
-        st.stop()
 
     uploaded_file = st.file_uploader(
         "Upload a parking lot image", type=["jpg", "jpeg", "png"]
@@ -232,8 +189,8 @@ def main():
         image_pil = Image.open(uploaded_file).convert("RGB")
         image_bgr = cv2.cvtColor(np.array(image_pil), cv2.COLOR_RGB2BGR)
 
-        with st.spinner("Analyzing parking slots..."):
-            results = detect_slots_classification(image_bgr, slots, model)
+        with st.spinner("Detecting parking slots..."):
+            results = detect_slots(image_bgr, model)
             annotated_bgr = draw_overlays(image_bgr, results)
             annotated_rgb = cv2.cvtColor(annotated_bgr, cv2.COLOR_BGR2RGB)
             total, occupied, available, occupancy_pct = compute_utilization(results)
