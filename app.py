@@ -18,9 +18,9 @@ Pipeline:
 HOW TO PLUG IN YOUR TRAINED MODEL
 -----------------------------------
 Train a YOLO model (e.g. with the ultralytics package) on the PKLot
-dataset with two classes: "empty" and "occupied". Export the weights as
-"parking_yolo.pt" and place it next to this script. That's it - no other
-config files are required.
+dataset with two classes: "space-empty" and "space-occupied". Export the
+weights as "parking_yolo.pt" and place it next to this script. That's it -
+no other config files are required.
 
 Run with:
     streamlit run app.py
@@ -52,11 +52,11 @@ HIGH_THRESHOLD = 75      # % occupancy above this   -> High congestion
 COLOR_EMPTY = (0, 200, 0)      # green (BGR for OpenCV)
 COLOR_OCCUPIED = (0, 0, 220)   # red (BGR for OpenCV)
 
-# Class-name -> status mapping. Adjust the indices to match how you
-# labelled your classes when training YOLO (check data.yaml / model.names).
+# Class-name -> status mapping. These match the categories in your
+# _annotations.coco.json (space-empty / space-occupied).
 CLASS_TO_STATUS = {
-    "empty": "empty",
-    "occupied": "occupied",
+    "space-empty": "empty",
+    "space-occupied": "occupied",
 }
 
 
