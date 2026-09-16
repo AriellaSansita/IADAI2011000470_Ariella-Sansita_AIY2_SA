@@ -44,7 +44,7 @@ except ImportError:
 # Configuration
 # ---------------------------------------------------------------------------
 MODEL_PATH = "parking_yolo.pt"   # your trained YOLO weights (Step 3)
-CONF_THRESHOLD = 0.4             # minimum detection confidence to keep a box
+CONF_THRESHOLD = 0.25             # minimum detection confidence to keep a box
 
 LOW_THRESHOLD = 40       # % occupancy below this  -> Low congestion
 HIGH_THRESHOLD = 75      # % occupancy above this   -> High congestion
