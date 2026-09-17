@@ -45,6 +45,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 MODEL_PATH = "parking_yolo.pt"   # your trained YOLO weights (Step 3)
 CONF_THRESHOLD = 0.25             # minimum detection confidence to keep a box
+IMG_SIZE = 1280                   # inference resolution (higher = catches smaller/farther cars)
 
 LOW_THRESHOLD = 40       # % occupancy below this  -> Low congestion
 HIGH_THRESHOLD = 75      # % occupancy above this   -> High congestion
@@ -82,7 +83,7 @@ def detect_slots(image_bgr, model):
     No slot coordinates need to be provided - YOLO finds them.
     """
     if model is not None:
-        preds = model(image_bgr, conf=CONF_THRESHOLD, verbose=False)[0]
+        preds = model(image_bgr, conf=CONF_THRESHOLD, imgsz=IMG_SIZE, verbose=False)[0]
         results = []
         for box in preds.boxes:
             x1, y1, x2, y2 = box.xyxy[0].tolist()
