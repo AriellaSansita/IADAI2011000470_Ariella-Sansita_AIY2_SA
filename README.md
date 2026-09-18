@@ -130,7 +130,7 @@ this is noted as a direction for future improvement.
 
 ---
 
-**Live App:** https://iadai2011000470ariella-sansitaaiy2sa-dggsnhvp4atgjk7pwsibww.streamlit.app/
+Live App: https://iadai2011000470ariella-sansitaaiy2sa-dggsnhvp4atgjk7pwsibww.streamlit.app/
 ---
 
 ## 🖼️ Screenshots
@@ -172,14 +172,11 @@ pip install -r requirements.txt
 streamlit run app.py
 ```
 
-**Note:** the trained model file (`parking_yolo.pt`) must be present in the
+Note: the trained model file (`parking_yolo.pt`) must be present in the
 same folder as `app.py` for real detections to run. Without it, the app
 falls back to a demo mode with randomly generated slots so the interface
 can still be tested.
 
-On Streamlit Community Cloud specifically, `packages.txt` (listing system
-libraries like `libgl1`) is also required alongside `requirements.txt` for
-OpenCV to import correctly in the hosted environment.
 ---
 
 ## References
