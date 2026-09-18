@@ -164,7 +164,6 @@ runs/detect/parkvision_yolo/]
 
 ## 🖼️ Screenshots
 
-[INSERT SCREENSHOTS HERE]
 - Upload screen
 - Detected slots (annotated image with colour-coded boxes)
 - Metrics, congestion level, and recommendation section
@@ -209,17 +208,3 @@ can still be tested.
 On Streamlit Community Cloud specifically, `packages.txt` (listing system
 libraries like `libgl1`) is also required alongside `requirements.txt` for
 OpenCV to import correctly in the hosted environment.
-
----
-
-## 📁 Repository Structure
-
-```
-├── app.py                  # Main Streamlit application
-├── requirements.txt        # Python dependencies
-├── packages.txt            # System-level dependencies (Streamlit Cloud)
-├── parking_yolo.pt         # Trained YOLOv8 model weights
-├── data_preparation.ipynb  # Colab notebook: COCO→YOLO conversion, dataset split
-├── model_training.ipynb    # Colab notebook: YOLO training pipeline
-└── README.md                # This file
-```
