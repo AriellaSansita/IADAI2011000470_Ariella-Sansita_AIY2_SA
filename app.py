@@ -215,8 +215,6 @@ def main():
 
         with st.expander("🎨 Display"):
             show_confidence = st.checkbox("Show confidence scores on boxes", value=False)
-            st.caption("Box color intensity already reflects confidence — "
-                       "faint/grey boxes are low-confidence detections.")
 
         st.divider()
         if st.session_state.history:
