@@ -45,7 +45,7 @@ except ImportError:
 # ---------------------------------------------------------------------------
 MODEL_PATH = "parking_yolo.pt"   # your trained YOLO weights (Step 3)
 CONF_THRESHOLD = 0.25             # minimum detection confidence to keep a box
-IMG_SIZE = 1350                  # inference resolution (higher = catches smaller/farther cars)
+IMG_SIZE = 1300                  # inference resolution (higher = catches smaller/farther cars)
 
 LOW_THRESHOLD = 40       # % occupancy below this  -> Low congestion
 HIGH_THRESHOLD = 75      # % occupancy above this   -> High congestion
