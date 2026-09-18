@@ -206,13 +206,12 @@ def main():
             )
 
         with st.expander("🔍 Detail level", expanded=True):
-            img_size = st.select_slider(
-                "Inference resolution",
-                options=[640, 960, 1280, 1600, 1920],
-                value=DEFAULT_IMG_SIZE,
-                help="Higher resolution catches smaller/farther slots in wide "
-                     "aerial shots, but runs slower."
-            )
+            img_size = st.slider(
+              "Inference resolution", min_value=320, max_value=1920,
+              value=DEFAULT_IMG_SIZE, step=32,
+              help="Higher resolution catches smaller/farther slots in wide "
+                   "aerial shots, but runs slower."
+)
 
         with st.expander("🎨 Display"):
             show_confidence = st.checkbox("Show confidence scores on boxes", value=False)
