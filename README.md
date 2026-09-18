@@ -1,21 +1,20 @@
-# 🅿️ ParkVision AI — Intelligent Urban Parking Analytics & Space Optimisation Platform
+# Candidate Name - Ariella Sansita M
 
-**Live App:** [PASTE YOUR STREAMLIT CLOUD LINK HERE]
-**GitHub Repository:** [PASTE YOUR GITHUB REPO LINK HERE]
+# Candidate Registration Number - 1000470
+
+# CRS Name: Artificial Intelligence
+
+# Course Name - Machine Learning & Deep Learning
+
+# School name - Birla Open Minds International School, Kollur
+
+# Summative Assessment
+
+# ParkVision AI
 
 ---
 
-## 📋 Student Details
-
-- **Full Name:** [YOUR FULL NAME]
-- **Candidate Registration Number:** [YOUR REGISTRATION NUMBER]
-- **CRS Name:** Artificial Intelligence
-- **Course Name:** [YOUR COURSE NAME]
-- **School Name:** [YOUR SCHOOL NAME]
-
----
-
-## 📖 Project Overview
+## Project Overview
 
 ParkVision AI is a computer vision system built for UrbanFlow AI's smart-city
 initiative, designed to solve a common urban problem: drivers and city
@@ -36,7 +35,7 @@ The system takes a parking lot image as input and returns:
 
 ---
 
-## 🎯 Problem Statement
+## Problem Statement
 
 Traditional parking systems only report whether a lot is generally full or
 not, which forces drivers to search blindly and leaves lot operators without
@@ -48,30 +47,7 @@ in-ground sensors at every slot.
 
 ---
 
-## 🔍 Research Findings & References
-
-- The project uses **object detection (YOLO)** rather than a per-slot
-  classification approach. A classification model can only label a
-  pre-cropped image as empty/occupied, which requires manually defining
-  every slot's coordinates for each camera view. A detection model instead
-  locates and classifies every slot directly from the full image, which
-  generalises better to a live camera feed and needs no manual slot
-  configuration.
-- **Dataset:** [PKLot Dataset on Kaggle](https://www.kaggle.com/datasets/ammarnassanalhajali/pklot-dataset)
-  — a widely used benchmark dataset for parking-slot occupancy detection,
-  originally introduced in Almeida et al., *"PKLot – A robust dataset for
-  parking lot classification,"* Expert Systems with Applications, 2015.
-- **Model framework:** [Ultralytics YOLOv8 Documentation](https://docs.ultralytics.com/)
-  was used as the primary reference for training configuration, data format
-  requirements, and inference parameters (confidence threshold, image size).
-- **Annotation format:** the dataset was provided as a Roboflow export in
-  **COCO format** (`_annotations.coco.json`), which required a custom
-  conversion step to YOLO's normalized bounding-box `.txt` label format
-  before training (see *Data Preparation* below).
-
----
-
-## 🗂️ Data Preparation
+## Data Preparation
 
 1. **Source:** the PKLot dataset was downloaded via the Kaggle API directly
    into Google Colab. The available data was provided as a single
@@ -101,7 +77,7 @@ in-ground sensors at every slot.
 
 ---
 
-## 🧠 Model & Training Details
+## Model & Training Details
 
 | Parameter | Value |
 |---|---|
@@ -121,14 +97,6 @@ this is noted as a direction for future improvement.
 
 ---
 
-## 📊 Performance Metrics
-
-[FILL IN: paste your final training metrics here, e.g. from the last epoch
-of training or from Ultralytics' auto-generated results — mAP50, mAP50-95,
-precision, recall. You can find these printed at the end of your Cell 4
-training output, or in the results.png / results.csv file YOLO saves to
-runs/detect/parkvision_yolo/]
-
 **Qualitative testing summary:**
 - Performs reliably on images from the same camera framing as the training
   data, across varying occupancy levels and lighting conditions.
@@ -142,7 +110,7 @@ runs/detect/parkvision_yolo/]
 
 ---
 
-## ✨ App Features
+## App Features
 
 - **Batch upload** — process multiple images in one session, with a
   per-image breakdown and a combined summary table
@@ -162,16 +130,20 @@ runs/detect/parkvision_yolo/]
 
 ---
 
-## 🖼️ Screenshots
-
-- Upload screen
-- Detected slots (annotated image with colour-coded boxes)
-- Metrics, congestion level, and recommendation section
-- Sidebar settings panel
-
+**Live App:** https://iadai2011000470ariella-sansitaaiy2sa-dggsnhvp4atgjk7pwsibww.streamlit.app/
 ---
 
-## ⚠️ Known Limitations
+## 🖼️ Screenshots
+
+  <img width="2896" height="1240" alt="image" src="https://github.com/user-attachments/assets/a8b9196f-47fe-4306-9672-fbf43836c97d" />
+  <img width="2894" height="1518" alt="image" src="https://github.com/user-attachments/assets/f708060c-f52d-49dc-884d-67aa8ab16abf" />
+  <img width="2940" height="1570" alt="image" src="https://github.com/user-attachments/assets/c8af5c32-3bf1-41c8-a165-8be6e3d70490" />
+  <img width="2840" height="1524" alt="image" src="https://github.com/user-attachments/assets/e73dd990-6908-4f73-9ed6-f54f0779139c" />
+  <img width="2304" height="1258" alt="image" src="https://github.com/user-attachments/assets/68752bde-a059-4551-9784-a8594ddd04b6" />
+  <img width="2146" height="1060" alt="image" src="https://github.com/user-attachments/assets/8b00325b-f6d9-479a-9287-af9d3590c6be" />
+---
+
+## Known Limitations
 
 - **Fixed-camera dependency:** the model performs best within the exact
   framing of its training camera. Regions at the very edge of a wider or
@@ -191,7 +163,7 @@ calibrated to a specific, fixed camera per site.
 
 ---
 
-## 🚀 How to Run Locally
+## How to Run Locally
 
 ```bash
 git clone [YOUR REPO URL]
@@ -208,3 +180,18 @@ can still be tested.
 On Streamlit Community Cloud specifically, `packages.txt` (listing system
 libraries like `libgl1`) is also required alongside `requirements.txt` for
 OpenCV to import correctly in the hosted environment.
+---
+
+## References
+
+PKLot Dataset (official source): http://web.inf.ufpr.br/vri/parking-lot-database
+
+PKLot on Kaggle: https://www.kaggle.com/datasets/ammarnassanalhajali/pklot-dataset
+
+PKLot on Roboflow Universe: https://public.roboflow.com/object-detection/pklot
+
+Ultralytics YOLOv8 Documentation: https://docs.ultralytics.com/
+
+Roboflow COCO Format Documentation: https://roboflow.com/formats/coco-json
+
+OpenCV Documentation: https://docs.opencv.org/
