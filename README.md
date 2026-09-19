@@ -126,8 +126,6 @@ Evaluated on the held-out validation split (1,303 images, 75,100 annotated slots
 | space-empty | 0.999 | 0.998 | 0.995 |
 | space-occupied | 0.998 | 0.999 | 0.994 |
 
-![Confusion Matrix](path-to-confusion_matrix.png)
-
 ---
 
 ## App Features
