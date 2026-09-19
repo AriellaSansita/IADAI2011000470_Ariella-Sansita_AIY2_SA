@@ -257,8 +257,9 @@ def render_live_detection_stats(all_results):
 def render_correction_widget(uploaded_file_name, result):
     """Lets the user confirm or correct this image's detections. Their
     corrections become real ground truth for THIS image, accumulated into
-    a live confusion matrix. Uses session_state so each image's correction
-    is only counted once per session, even across Streamlit reruns."""
+    a live confusion matrix. Defaults to "all correct" (0 wrong) so an
+    unedited confirmation reflects a clean pass rather than the opposite -
+    corrections only apply once you explicitly say something is wrong."""
     if "corrections" not in st.session_state:
         st.session_state.corrections = {}  # {image_name: {fp_occupied, fn_occupied}}
 
@@ -266,21 +267,42 @@ def render_correction_widget(uploaded_file_name, result):
     pred_empty = result["available"]
 
     st.write("**✅ Confirm this detection (builds the live confusion matrix below)**")
-    col_a, col_b = st.columns(2)
-    with col_a:
-        fp_occupied = st.number_input(
-            f"Slots marked OCCUPIED that are actually EMPTY",
-            min_value=0, max_value=pred_occupied, value=0, step=1,
-            key=f"fp_{uploaded_file_name}",
-            help="How many red boxes are wrong (car spot is actually empty)?"
-        )
-    with col_b:
-        fn_occupied = st.number_input(
-            f"Slots marked EMPTY that are actually OCCUPIED",
-            min_value=0, max_value=pred_empty, value=0, step=1,
-            key=f"fn_{uploaded_file_name}",
-            help="How many green boxes are wrong (spot actually has a car)?"
-        )
+
+    all_correct_key = f"all_correct_{uploaded_file_name}"
+    if all_correct_key not in st.session_state:
+        st.session_state[all_correct_key] = True  # explicit init, avoids stale-default issues
+
+    all_correct = st.checkbox(
+        "All boxes in this image are correctly labeled",
+        key=all_correct_key,
+    )
+
+    fp_occupied = 0
+    fn_occupied = 0
+
+    if not all_correct:
+        st.caption("Uncheck items above only if some boxes are wrong, then enter how many below.")
+        col_a, col_b = st.columns(2)
+        with col_a:
+            fp_key = f"fp_{uploaded_file_name}"
+            if fp_key not in st.session_state:
+                st.session_state[fp_key] = 0
+            fp_occupied = st.number_input(
+                "Red boxes that are actually EMPTY (wrong)",
+                min_value=0, max_value=pred_occupied, step=1,
+                key=fp_key,
+                help="How many slots the model marked OCCUPIED are actually empty?"
+            )
+        with col_b:
+            fn_key = f"fn_{uploaded_file_name}"
+            if fn_key not in st.session_state:
+                st.session_state[fn_key] = 0
+            fn_occupied = st.number_input(
+                "Green boxes that are actually OCCUPIED (wrong)",
+                min_value=0, max_value=pred_empty, step=1,
+                key=fn_key,
+                help="How many slots the model marked EMPTY actually have a car?"
+            )
 
     # Store/overwrite this image's correction (keyed by filename, so
     # re-running the same session doesn't double count).
@@ -407,6 +429,20 @@ def main():
         if st.session_state.history:
             if st.button("🗑️ Clear history"):
                 st.session_state.history = []
+                st.rerun()
+
+        if st.session_state.get("corrections"):
+            if st.button("🗑️ Clear confirmations / confusion matrix"):
+                # Remove the accumulated corrections plus every related
+                # per-image widget key, so stale values from earlier in
+                # the session can't leak into a fresh confirmation.
+                keys_to_clear = [k for k in st.session_state.keys()
+                                  if k.startswith("all_correct_")
+                                  or k.startswith("fp_")
+                                  or k.startswith("fn_")]
+                for k in keys_to_clear:
+                    del st.session_state[k]
+                st.session_state.corrections = {}
                 st.rerun()
 
         st.caption(f"Model: {MODEL_PATH}")
