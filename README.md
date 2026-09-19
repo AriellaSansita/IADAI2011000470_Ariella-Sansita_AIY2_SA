@@ -110,6 +110,26 @@ this is noted as a direction for future improvement.
 
 ---
 
+## Model Evaluation
+
+Evaluated on the held-out validation split (1,303 images, 75,100 annotated slots):
+
+| Metric | Value |
+|---|---|
+| Precision | 0.999 |
+| Recall | 0.999 |
+| mAP50 | 0.995 |
+| mAP50-95 | 0.968 |
+
+| Class | Precision | Recall | mAP50 |
+|---|---|---|---|
+| space-empty | 0.999 | 0.998 | 0.995 |
+| space-occupied | 0.998 | 0.999 | 0.994 |
+
+![Confusion Matrix](path-to-confusion_matrix.png)
+
+---
+
 ## App Features
 
 - **Batch upload** — process multiple images in one session, with a
@@ -133,13 +153,15 @@ this is noted as a direction for future improvement.
 Live App: https://iadai2011000470ariella-sansitaaiy2sa-dggsnhvp4atgjk7pwsibww.streamlit.app/
 ---
 
-## 🖼️ Screenshots
+## Screenshots
 
-  <img width="2896" height="1240" alt="image" src="https://github.com/user-attachments/assets/a8b9196f-47fe-4306-9672-fbf43836c97d" />
-  <img width="2894" height="1518" alt="image" src="https://github.com/user-attachments/assets/f708060c-f52d-49dc-884d-67aa8ab16abf" />
-  <img width="2940" height="1570" alt="image" src="https://github.com/user-attachments/assets/c8af5c32-3bf1-41c8-a165-8be6e3d70490" />
-  <img width="2840" height="1524" alt="image" src="https://github.com/user-attachments/assets/e73dd990-6908-4f73-9ed6-f54f0779139c" />
-  <img width="2304" height="1258" alt="image" src="https://github.com/user-attachments/assets/68752bde-a059-4551-9784-a8594ddd04b6" />
+  <img width="2938" height="1494" alt="image" src="https://github.com/user-attachments/assets/8cf2b2a2-52bd-4b1b-9783-c23fcff002ef" />
+  <img width="2938" height="1446" alt="image" src="https://github.com/user-attachments/assets/d38ee62c-fcc1-4fec-8eb0-747e28e59688" />
+  <img width="2276" height="1450" alt="image" src="https://github.com/user-attachments/assets/f7500439-6eef-4954-ade5-82252b5de19d" />
+  <img width="2218" height="1490" alt="image" src="https://github.com/user-attachments/assets/68bea5b2-b76c-4684-87eb-51a05d8cc6a5" />
+  <img width="2912" height="1406" alt="image" src="https://github.com/user-attachments/assets/b6c23776-4ed6-496f-a259-6a4ff2da0c21" />
+  <img width="2816" height="1424" alt="image" src="https://github.com/user-attachments/assets/8aff0365-4922-43c5-9930-27acf4f0bcb4" />
+  <img width="2940" height="1208" alt="image" src="https://github.com/user-attachments/assets/23f86f8d-32bd-4f74-ac63-31ed643ad1ec" />  
   <img width="2146" height="1060" alt="image" src="https://github.com/user-attachments/assets/8b00325b-f6d9-479a-9287-af9d3590c6be" />
 ---
 
