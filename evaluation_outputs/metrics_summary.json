@@ -1,0 +1,19 @@
+{
+  "split_evaluated": "val",
+  "precision": 0.999,
+  "recall": 0.999,
+  "map50": 0.995,
+  "map50_95": 0.968,
+  "per_class": {
+    "space-empty": {
+      "precision": 0.999,
+      "recall": 0.998,
+      "map50": 0.995
+    },
+    "space-occupied": {
+      "precision": 0.998,
+      "recall": 0.999,
+      "map50": 0.994
+    }
+  }
+}
