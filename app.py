@@ -10,8 +10,12 @@ Features:
   - Confidence-based color gradient: box color intensity reflects confidence
   - Occupancy history chart: tracks occupancy % across images in this session
   - Adjustable confidence threshold and inference resolution (sidebar)
-  - Model Performance section: shows evaluation metrics (mAP, precision,
-    recall, confusion matrix) generated during training in Colab
+  - Model Performance section: shows benchmark evaluation metrics (mAP,
+    precision, recall, confusion matrix) from a labeled validation set,
+    generated during training in Colab (static — requires ground truth)
+  - Live Detection Confidence section: genuinely recomputed every run from
+    whatever images were just uploaded (average/min/max confidence, high vs
+    low confidence detection counts, per-class confidence)
 
 Run with:
     streamlit run app.py
@@ -195,17 +199,89 @@ def process_image(image_pil, model, conf_threshold, img_size, show_confidence):
         "occupancy_pct": occupancy_pct,
         "congestion": congestion,
         "recommendation": recommendation,
+        "raw_results": results,  # per-slot detections, used for live confidence stats
     }
+
+
+def compute_live_detection_stats(all_results):
+    """Compute REAL statistics from this session's actual detections.
+    This is genuinely live -> recalculated from whatever images were just
+    uploaded and processed. It does NOT include accuracy/precision/recall/
+    mAP, because those require ground-truth labels to compare against,
+    which uploaded images don't have. This shows detection *confidence*
+    behavior instead, which is measurable live.
+    """
+    if not all_results:
+        return None
+
+    confidences = [r["confidence"] for r in all_results]
+    empty_confidences = [r["confidence"] for r in all_results if r["status"] == "empty"]
+    occupied_confidences = [r["confidence"] for r in all_results if r["status"] == "occupied"]
+
+    high_conf = sum(1 for c in confidences if c >= 0.6)
+    low_conf = len(confidences) - high_conf
+
+    return {
+        "total_detections": len(confidences),
+        "avg_confidence": round(sum(confidences) / len(confidences), 3),
+        "min_confidence": round(min(confidences), 3),
+        "max_confidence": round(max(confidences), 3),
+        "high_confidence_count": high_conf,
+        "low_confidence_count": low_conf,
+        "avg_confidence_empty": round(sum(empty_confidences) / len(empty_confidences), 3) if empty_confidences else None,
+        "avg_confidence_occupied": round(sum(occupied_confidences) / len(occupied_confidences), 3) if occupied_confidences else None,
+    }
+
+
+def render_live_detection_stats(all_results):
+    """Genuinely live section: recomputed every run from THIS session's
+    uploaded images. No ground truth exists for these images, so this
+    reports detection confidence behavior, not correctness."""
+    stats = compute_live_detection_stats(all_results)
+
+    with st.expander("🔴 Live Detection Confidence (this session's uploads)", expanded=True):
+        if stats is None:
+            st.info("Upload images above to see live detection stats.")
+            return
+
+        st.caption(
+            "Computed live from the images just uploaded. This reflects how "
+            "confident the model was in its detections — it is **not** "
+            "accuracy, since there's no ground-truth label for these "
+            "specific images to check against."
+        )
+
+        c1, c2, c3 = st.columns(3)
+        c1.metric("Slots detected", stats["total_detections"])
+        c2.metric("Avg. confidence", f"{stats['avg_confidence']:.3f}")
+        c3.metric("Confidence range", f"{stats['min_confidence']:.2f}–{stats['max_confidence']:.2f}")
+
+        c4, c5 = st.columns(2)
+        c4.metric("High-confidence (≥0.6)", stats["high_confidence_count"])
+        c5.metric("Low-confidence (<0.6)", stats["low_confidence_count"])
+
+        if stats["avg_confidence_empty"] is not None or stats["avg_confidence_occupied"] is not None:
+            st.write("**Avg. confidence by class**")
+            c6, c7 = st.columns(2)
+            if stats["avg_confidence_empty"] is not None:
+                c6.metric("space-empty", f"{stats['avg_confidence_empty']:.3f}")
+            if stats["avg_confidence_occupied"] is not None:
+                c7.metric("space-occupied", f"{stats['avg_confidence_occupied']:.3f}")
 
 
 # ---------------------------------------------------------------------------
 # Model Performance section (reads pre-computed metrics, doesn't recompute)
 # ---------------------------------------------------------------------------
 def render_model_performance():
-    """Rendered after the per-image results, above the Batch Summary table."""
+    """Static benchmark numbers from a labeled validation set, generated
+    once in the training Colab via evaluate_model.py. These CANNOT be
+    computed live from uploaded images, because accuracy/precision/recall/
+    mAP all require ground-truth labels to compare predictions against —
+    something ad-hoc uploads don't have. See render_live_detection_stats()
+    above for the genuinely live counterpart."""
     metrics = load_metrics_summary(METRICS_PATH)
 
-    with st.expander("📊 Model Performance (evaluation metrics)", expanded=False):
+    with st.expander("📊 Model Performance (benchmark, from labeled validation data)", expanded=False):
         if metrics is None:
             st.info(
                 "No evaluation metrics found yet. Run `evaluate_model.py` in "
@@ -295,12 +371,15 @@ def main():
 
     if uploaded_files:
         batch_rows = []
+        all_detection_results = []  # every individual slot detection, across all uploaded images
 
         for uploaded_file in uploaded_files:
             image_pil = Image.open(uploaded_file).convert("RGB")
 
             with st.spinner(f"Detecting slots in {uploaded_file.name}..."):
                 result = process_image(image_pil, model, conf_threshold, img_size, show_confidence)
+
+            all_detection_results.extend(result["raw_results"])
 
             # Log to session history for the trend chart
             st.session_state.history.append({
@@ -336,9 +415,11 @@ def main():
                 st.progress(min(int(result["occupancy_pct"]), 100))
                 st.info(result["recommendation"])
 
-        # --- Model Performance (evaluation metrics) ---
-        # Shown after per-image results, above the Batch Summary table.
+        # --- Live Detection Confidence (genuinely computed from THIS upload) ---
         st.divider()
+        render_live_detection_stats(all_detection_results)
+
+        # --- Model Performance (static benchmark from labeled validation data) ---
         render_model_performance()
 
         # --- Batch summary table (only meaningful with >1 image) ---
