@@ -14,8 +14,9 @@ Features:
     whatever images were just uploaded (average/min/max confidence, high vs
     low confidence detection counts, per-class confidence)
   - Live Confusion Matrix section: real 2x2 confusion matrix built from
-    user-confirmed corrections on the current session's uploads (accuracy/
-    precision/recall computed from actual human-verified ground truth)
+    the Batch Summary's predicted totals plus one batch-level correction
+    control (accuracy/precision/recall computed from actual confirmed
+    counts, not a static file)
 
 Run with:
     streamlit run app.py
@@ -252,124 +253,97 @@ def render_live_detection_stats(all_results):
 
 
 # ---------------------------------------------------------------------------
-# Live Confusion Matrix - built from human-confirmed corrections
+# Live Confusion Matrix - built from the Batch Summary totals + one
+# batch-level correction control (instead of a widget per image)
 # ---------------------------------------------------------------------------
-def render_correction_widget(uploaded_file_name, result):
-    """Lets the user confirm or correct this image's detections. Their
-    corrections become real ground truth for THIS image, accumulated into
-    a live confusion matrix. Defaults to "all correct" (0 wrong) so an
-    unedited confirmation reflects a clean pass rather than the opposite -
-    corrections only apply once you explicitly say something is wrong."""
-    if "corrections" not in st.session_state:
-        st.session_state.corrections = {}  # {image_name: {fp_occupied, fn_occupied}}
-
-    pred_occupied = result["occupied"]
-    pred_empty = result["available"]
-
-    st.write("**✅ Confirm this detection (builds the live confusion matrix below)**")
-
-    all_correct_key = f"all_correct_{uploaded_file_name}"
-    if all_correct_key not in st.session_state:
-        st.session_state[all_correct_key] = True  # explicit init, avoids stale-default issues
-
-    all_correct = st.checkbox(
-        "All boxes in this image are correctly labeled",
-        key=all_correct_key,
-    )
-
-    fp_occupied = 0
-    fn_occupied = 0
-
-    if not all_correct:
-        st.caption("Uncheck items above only if some boxes are wrong, then enter how many below.")
-        col_a, col_b = st.columns(2)
-        with col_a:
-            fp_key = f"fp_{uploaded_file_name}"
-            if fp_key not in st.session_state:
-                st.session_state[fp_key] = 0
-            fp_occupied = st.number_input(
-                "Red boxes that are actually EMPTY (wrong)",
-                min_value=0, max_value=pred_occupied, step=1,
-                key=fp_key,
-                help="How many slots the model marked OCCUPIED are actually empty?"
-            )
-        with col_b:
-            fn_key = f"fn_{uploaded_file_name}"
-            if fn_key not in st.session_state:
-                st.session_state[fn_key] = 0
-            fn_occupied = st.number_input(
-                "Green boxes that are actually OCCUPIED (wrong)",
-                min_value=0, max_value=pred_empty, step=1,
-                key=fn_key,
-                help="How many slots the model marked EMPTY actually have a car?"
-            )
-
-    # Store/overwrite this image's correction (keyed by filename, so
-    # re-running the same session doesn't double count).
-    st.session_state.corrections[uploaded_file_name] = {
-        "pred_occupied": pred_occupied,
-        "pred_empty": pred_empty,
-        "fp_occupied": fp_occupied,   # predicted occupied, actually empty
-        "fn_occupied": fn_occupied,   # predicted empty, actually occupied
-    }
-
-
-def compute_live_confusion_matrix():
-    """Aggregates every correction submitted this session into a real
-    2x2 confusion matrix: predicted class vs. user-confirmed actual class."""
-    corrections = st.session_state.get("corrections", {})
-    if not corrections:
+def compute_live_confusion_matrix(batch_rows, fp_occupied, fn_occupied):
+    """Builds a real 2x2 confusion matrix directly from the Batch Summary
+    data (predicted occupied/available totals) plus a single set of
+    batch-level corrections: how many predicted-occupied slots are
+    actually empty, and how many predicted-empty slots are actually
+    occupied. Still needs a human-confirmed correction count to be a true
+    confusion matrix - that's unavoidable, since "correctness" always
+    requires a known right answer - but now sourced from the same totals
+    already shown in Batch Summary, with one control instead of many."""
+    if not batch_rows:
         return None
 
-    tp_occupied = fp_occupied = fn_occupied = tn_occupied = 0
-    for c in corrections.values():
-        fp = c["fp_occupied"]
-        fn = c["fn_occupied"]
-        tp_occupied += c["pred_occupied"] - fp   # predicted occupied, correct
-        fp_occupied += fp                        # predicted occupied, wrong (actually empty)
-        fn_occupied += fn                        # predicted empty, wrong (actually occupied)
-        tn_occupied += c["pred_empty"] - fn       # predicted empty, correct
-
-    total = tp_occupied + fp_occupied + fn_occupied + tn_occupied
+    pred_occupied = sum(row["Occupied"] for row in batch_rows)
+    pred_empty = sum(row["Available"] for row in batch_rows)
+    total = pred_occupied + pred_empty
     if total == 0:
         return None
+
+    tp_occupied = pred_occupied - fp_occupied   # predicted occupied, correct
+    tn_occupied = pred_empty - fn_occupied      # predicted empty, correct
 
     accuracy = (tp_occupied + tn_occupied) / total
     precision = tp_occupied / (tp_occupied + fp_occupied) if (tp_occupied + fp_occupied) > 0 else None
     recall = tp_occupied / (tp_occupied + fn_occupied) if (tp_occupied + fn_occupied) > 0 else None
 
     return {
+        "pred_occupied": pred_occupied, "pred_empty": pred_empty,
         "tp_occupied": tp_occupied, "fp_occupied": fp_occupied,
         "fn_occupied": fn_occupied, "tn_occupied": tn_occupied,
         "total": total, "accuracy": accuracy,
         "precision": precision, "recall": recall,
-        "n_images_confirmed": len(corrections),
+        "n_images": len(batch_rows),
     }
 
 
-def render_live_confusion_matrix():
-    """Genuinely live confusion matrix, recomputed from user corrections
-    submitted this session via render_correction_widget(). Confirm/correct
-    at least one image above to populate this."""
-    cm = compute_live_confusion_matrix()
+def render_live_confusion_matrix(batch_rows):
+    """Reads predicted totals straight from the Batch Summary data (same
+    numbers visible in that table) and lets the user apply ONE correction
+    for the whole batch, rather than confirming each image separately."""
+    pred_occupied_total = sum(row["Occupied"] for row in batch_rows) if batch_rows else 0
+    pred_empty_total = sum(row["Available"] for row in batch_rows) if batch_rows else 0
 
-    with st.expander("🟢 Live Confusion Matrix (from your confirmations)", expanded=True):
+    with st.expander("🟢 Live Confusion Matrix (from Batch Summary)", expanded=True):
         st.caption(
-            "Built live from the corrections you submit above. Every "
-            "confusion matrix — including the benchmark one below — needs "
-            "a known correct answer to compare against; here, that's you "
-            "confirming each image."
+            "Predicted totals below are pulled directly from the Batch "
+            "Summary table. A confusion matrix always needs a known "
+            "correct answer to compare against, so if any boxes are "
+            "wrong, say how many using the controls below — otherwise "
+            "it assumes the batch is fully correct."
+        )
+        st.caption(
+            f"From Batch Summary: **{pred_occupied_total}** predicted occupied, "
+            f"**{pred_empty_total}** predicted empty ({len(batch_rows)} image(s))."
         )
 
-        if cm is None:
-            st.info(
-                "No confirmations yet. Use the ✅ Confirm section under "
-                "each uploaded image above to start building this."
-            )
-            return
+        if "batch_all_correct" not in st.session_state:
+            st.session_state.batch_all_correct = True
 
-        st.caption(f"Based on {cm['n_images_confirmed']} confirmed image(s), "
-                   f"{cm['total']} total slots.")
+        all_correct = st.checkbox(
+            "Every box across this batch is correctly labeled",
+            key="batch_all_correct",
+        )
+
+        fp_occupied = 0
+        fn_occupied = 0
+        if not all_correct:
+            col_a, col_b = st.columns(2)
+            with col_a:
+                if "batch_fp" not in st.session_state:
+                    st.session_state.batch_fp = 0
+                fp_occupied = st.number_input(
+                    "Predicted OCCUPIED slots that are actually empty",
+                    min_value=0, max_value=pred_occupied_total, step=1,
+                    key="batch_fp",
+                )
+            with col_b:
+                if "batch_fn" not in st.session_state:
+                    st.session_state.batch_fn = 0
+                fn_occupied = st.number_input(
+                    "Predicted EMPTY slots that are actually occupied",
+                    min_value=0, max_value=pred_empty_total, step=1,
+                    key="batch_fn",
+                )
+
+        cm = compute_live_confusion_matrix(batch_rows, fp_occupied, fn_occupied)
+        if cm is None:
+            st.info("Upload and process images above to populate this.")
+            return
 
         matrix_df = pd.DataFrame(
             [
@@ -431,18 +405,11 @@ def main():
                 st.session_state.history = []
                 st.rerun()
 
-        if st.session_state.get("corrections"):
-            if st.button("🗑️ Clear confirmations / confusion matrix"):
-                # Remove the accumulated corrections plus every related
-                # per-image widget key, so stale values from earlier in
-                # the session can't leak into a fresh confirmation.
-                keys_to_clear = [k for k in st.session_state.keys()
-                                  if k.startswith("all_correct_")
-                                  or k.startswith("fp_")
-                                  or k.startswith("fn_")]
-                for k in keys_to_clear:
-                    del st.session_state[k]
-                st.session_state.corrections = {}
+        if st.session_state.get("batch_all_correct") is False or st.session_state.get("batch_fp") or st.session_state.get("batch_fn"):
+            if st.button("🗑️ Reset confusion matrix corrections"):
+                for k in ["batch_all_correct", "batch_fp", "batch_fn"]:
+                    if k in st.session_state:
+                        del st.session_state[k]
                 st.rerun()
 
         st.caption(f"Model: {MODEL_PATH}")
@@ -506,16 +473,9 @@ def main():
                 st.progress(min(int(result["occupancy_pct"]), 100))
                 st.info(result["recommendation"])
 
-                st.divider()
-                render_correction_widget(uploaded_file.name, result)
-
         # --- Live Detection Confidence (genuinely computed from THIS upload) ---
         st.divider()
         render_live_detection_stats(all_detection_results)
-
-        # --- Live Confusion Matrix (from user-confirmed corrections) ---
-        st.divider()
-        render_live_confusion_matrix()
 
         # --- Batch summary table (only meaningful with >1 image) ---
         if len(uploaded_files) > 1:
@@ -523,6 +483,10 @@ def main():
             st.subheader("📊 Batch Summary")
             df = pd.DataFrame(batch_rows)
             st.dataframe(df, use_container_width=True, hide_index=True)
+
+        # --- Live Confusion Matrix (sourced from the Batch Summary totals) ---
+        st.divider()
+        render_live_confusion_matrix(batch_rows)
 
         # --- Occupancy history chart ---
         if len(st.session_state.history) > 1:
